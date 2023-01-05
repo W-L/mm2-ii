@@ -1,3 +1,15 @@
+.gitignore
+idx.mmi
+sketches.bin
+sketches.empty
+dump/
+.idea/
+cmake-build-debug/
+cmake-build-release/
+data/
+minimap2/
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
