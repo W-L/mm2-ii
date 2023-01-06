@@ -24,7 +24,6 @@ typedef khash_t(idx) idxhash_t;
 KHASH_MAP_INIT_STR(str, uint32_t)
 
 // magic identifier for mmis
-#define MM_IDX_MAGIC    "MMI\2"
 #define MM2_VERSION     "2.24-r1150"
 #define MM2_II_VERSION  "0.0.1"
 #define WINDOW_SIZE     5
@@ -54,7 +53,7 @@ Sketch *read_sketches(const char *filename, int *total);
 // put all sketches from file into a hashmap
 bool fill_hashmap(sketchmap_t *hm, Sketch *data, const int *total);
 // generate minimizer sketch from a single sequence
-Sketch sketch_sequence(kseq_t *seq, int w, int k);
+Sketch sketch_sequence(kseq_t *seq, int w, int k, int r);
 // merge arrays of loaded and new sketches for writing to file
 Sketch *mergearray(Sketch *a, Sketch *b, int size_a, int size_b);
 // count number of sequences in file and total length
@@ -273,13 +272,13 @@ bool fill_hashmap(sketchmap_t *hm, Sketch *data, const int *total){
 
 
 
-Sketch sketch_sequence(kseq_t *seq, int w, int k)
+Sketch sketch_sequence(kseq_t *seq, int w, int k, int r)
 {
     Sketch sk = {.v.n = 0, .v.a = 0};
     strcpy(sk.n, seq->name.s);
     int l = (int) seq->seq.l;
     // definition is in mm2's sketch.c
-    mm_sketch(0, seq->seq.s, l, w, k, 0, 0, &sk.v);
+    mm_sketch(0, seq->seq.s, l, w, k, r, 0, &sk.v);
     return sk;
 }
 
@@ -373,7 +372,7 @@ Sketch *fill_idx_buckets(const char * fname, mm_idx_t * mi, int n, sketchmap_t *
         q = hashmap_get(hm, seq->name.s);
         if (!q){
             // printf("%s NO\n", seq->name.s);
-            sketch_new = sketch_sequence(seq, WINDOW_SIZE, KMER_SIZE);
+            sketch_new = sketch_sequence(seq, WINDOW_SIZE, KMER_SIZE, idx);
             sketches_new[*new_seqs] = sketch_new;
             (*new_seqs)++;
             int sn = (int) sketch_new.v.n;

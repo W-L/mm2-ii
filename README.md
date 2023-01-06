@@ -30,7 +30,7 @@ We then generate the minimap2 index and write all minimizer sketches to a file
 
 Dependencies are:
 
-- [minimap2](https://github.com/lh3/minimap2)
+- [minimap2](https://github.com/lh3/minimap2) (currently tested with 2.24-r1150)
 - [hashmap](https://github.com/DavidLeeds/hashmap)
 
 
@@ -49,6 +49,13 @@ Executable should be available as: `./build/mm2ii`
 
 ## TODO
 
+- TODO does not work with sketches loaded from file
+- only empty file in works atm
+
+
+- only write the sketches to file that are part of the sequence file
+- that way we drop sketches that are not needed anymore
+- and we might get rid of array merging?
 - the index is not completely identical to an index produced by mm2
 
 
