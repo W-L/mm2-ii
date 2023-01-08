@@ -3,6 +3,7 @@
 #include <stdbool.h>    // bool types
 #include <sys/stat.h>   // stat_record, file checking
 #include <inttypes.h>
+#include <time.h>
 
 // external dependencies
 #include <zlib.h>
@@ -76,6 +77,7 @@ void print_sketches(Sketch *data, int n);
 
 int main(int argc, char *argv[])
 {
+    clock_t tic = clock();
     // check correct number of args
     if (argc != 5) {
         printf("Usage: %s <in.sketches> <out.sketches> <in.fastx> <out.mmi>\n", argv[0]);
@@ -184,6 +186,10 @@ int main(int argc, char *argv[])
     free(sketches_read);
     free(collected_sketches);
     mm_idx_destroy(mi);
+
+    clock_t toc = clock();
+    printf("t: %f s\n", (double)(toc - tic) / CLOCKS_PER_SEC);
+
     return 0;
 }
 
