@@ -30,7 +30,7 @@ KHASH_MAP_INIT_STR(str, uint32_t)
 #define MM2_II_VERSION  "0.0.1"
 #define WINDOW_SIZE     5
 #define KMER_SIZE       15
-#define NTHREADS        1
+#define NTHREADS        6
 
 
 typedef HASHMAP(char, mm128_t) vmap_t;
