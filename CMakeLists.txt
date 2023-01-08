@@ -19,6 +19,6 @@ add_executable(mm2ii
 target_link_libraries(mm2ii z hashmap)
 
 target_include_directories(mm2ii PUBLIC minimap2)
-
+target_include_directories(mm2ii PUBLIC ./)
 
 
