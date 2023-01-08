@@ -77,8 +77,8 @@ void print_sketches(Sketch *data, int n);
 int main(int argc, char *argv[])
 {
     // check correct number of args
-    if (argc != 4) {
-        printf("Usage: %s <in.sketches> <in.fasta> <out.mmi>\n", argv[0]);
+    if (argc != 5) {
+        printf("Usage: %s <in.sketches> <out.sketches> <in.fastx> <out.mmi>\n", argv[0]);
         return 1;
     }
 
@@ -89,15 +89,16 @@ int main(int argc, char *argv[])
     }
     printf("\n\n");
 
-    const char * sketchfile = argv[1];
-    const char * sequencefile = argv[2];
-    const char * idxfile = argv[3];
+    const char * sketches_in = argv[1];
+    const char * sketches_out = argv[2];
+    const char * sequencefile = argv[3];
+    const char * idxfile = argv[4];
 
 
     // count input sequences and length
     seq_counter seq_count;
     seq_count = count_sequences(sequencefile);
-    printf("%d sequences; %d total len\n", seq_count.n, seq_count.l);
+    printf("Counted sequences:\n%d sequences; %d total length\n", seq_count.n, seq_count.l);
 
 
     // init hashmap
@@ -109,9 +110,9 @@ int main(int argc, char *argv[])
 
     int loaded = 0;
 
-    if (file_has_content(sketchfile)){
+    if (file_has_content(sketches_in)){
         // read sketches from file
-        sketches_read = read_sketches(sketchfile, &loaded);
+        sketches_read = read_sketches(sketches_in, &loaded);
 
         // print_sketches(sketches_read, loaded);
 
@@ -168,8 +169,8 @@ int main(int argc, char *argv[])
 
 
     // write new sketch file
-    if (write_sketches(sketchfile, collected_sketches, seq_count.n)){
-        printf("%d Sketches written to: %s.\n", seq_count.n, sketchfile);
+    if (write_sketches(sketches_out, collected_sketches, seq_count.n)){
+        printf("%d Sketches written to: %s.\n", seq_count.n, sketches_out);
     }
     else{
         printf("Error writing sketches.\n");
