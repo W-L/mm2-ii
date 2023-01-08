@@ -26,21 +26,32 @@ We then generate the minimap2 index and write all minimizer sketches to a file
 - Perform clean-up
 
 
-## Installation & dependencies
+## Dependencies, installation & Usage
 
 Dependencies are:
 
-- [minimap2](https://github.com/lh3/minimap2) (currently tested with 2.24-r1150)
 - [hashmap](https://github.com/DavidLeeds/hashmap)
+
+```
+git clone https://github.com/DavidLeeds/hashmap.git
+mkdir build-hashmap && cd build-hashmap
+cmake ../hashmap && make
+sudo make install
+```
+
+
+- [minimap2](https://github.com/lh3/minimap2) (currently tested with 2.24-r1150)
+
+(does not need to be installed, just present at compile-time)
 
 
 Installation:
 
-- clone this repository and also clone minimap2 into it (needed for compiler)
+clone this repository and also clone minimap2 into it (needed for compiler):
 
-- `git clone https://github.com/W-L/mm2-ii.git && cd mm2-ii && git clone https://github.com/lh3/minimap2.git`
+`git clone https://github.com/W-L/mm2-ii.git && cd mm2-ii && git clone https://github.com/lh3/minimap2.git`
 
-- create build directory and run the build
+create build directory and run the build:
 
 `mkdir -p build && cmake -S . -B build && cd build && make`
 
@@ -48,7 +59,20 @@ The executable should then be available as: `./build/mm2ii`
 
 ## Usage
 
-`mm2ii <in.sketches> <in.fasta> <out.mmi>`
+`mm2ii <in.sketches> <out.sketches> <in.fastx> <out.mmi>`
+
+- `<in.sketches>`: file containing minimizer sketches, can also not exist or be empty.
+- `<out.sketches>`: filename for writing minimizer sketched to.
+- `<in.fastx>`: sequence file for which an index should be created. 
+Minimizers only need to be calculated for sequences that do not already have a sketch in `sketch.in`.
+- `<out.mmi>`: output name of the minimap2 index.
+
+
+
+
+## License
+
+Licensed under MIT
 
 
 
