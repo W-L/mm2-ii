@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>    // bool types
 #include <sys/stat.h>   // stat_record, file checking
+#include <inttypes.h>
 
 // external dependencies
 #include <zlib.h>
@@ -31,7 +32,8 @@ KHASH_MAP_INIT_STR(str, uint32_t)
 #define NTHREADS        1
 
 
-typedef HASHMAP(char, mm128_v) sketchmap_t;
+typedef HASHMAP(char, mm128_t) vmap_t;
+typedef HASHMAP(char, size_t) sizemap_t;
 
 
 // main struct to hold minimizers & sequence name
@@ -51,17 +53,23 @@ bool file_has_content(const char * fname);
 bool write_sketches(const char *filename, Sketch *data, int total);
 Sketch *read_sketches(const char *filename, int *total);
 // put all sketches from file into a hashmap
-bool fill_hashmap(sketchmap_t *hm, Sketch *data, const int *total);
+bool fill_hashmap(vmap_t *vm, sizemap_t *sm, Sketch *data, const int *loaded);
 // generate minimizer sketch from a single sequence
 Sketch sketch_sequence(kseq_t *seq, int w, int k, int r);
-// merge arrays of loaded and new sketches for writing to file
-Sketch *mergearray(Sketch *a, Sketch *b, int size_a, int size_b);
 // count number of sequences in file and total length
 seq_counter count_sequences(const char * fname);
 // write mmi to file, wraps mm_idx_dump
 bool write_index(const char * fname, mm_idx_t * mi);
-// iterate over sequences and either put loaded or generated sketches into idx buckets
-Sketch *fill_idx_buckets(const char * fname, mm_idx_t * mi, int n, sketchmap_t *hm, int *new_seqs);
+// collect the loaded and generated sketches in an array
+void collect_sketches(const char * fname, mm_idx_t * mi, vmap_t *vm, sizemap_t *sm, Sketch * cs);
+// iterate over sequences and put into idx buckets
+void fill_idx_buckets(mm_idx_t * mi, int n, Sketch *data);
+// modifying the y-values in mm sketches is necessary
+uint64_t modify_y(uint64_t y, int rid);
+void change_rid(mm128_t *arr, size_t n, int rid);
+// helper func for debugging
+void print_sketches(Sketch *data, int n);
+
 
 
 
@@ -85,34 +93,6 @@ int main(int argc, char *argv[])
     const char * sequencefile = argv[2];
     const char * idxfile = argv[3];
 
-    int total = 0;
-
-    // init hashmap
-    sketchmap_t hm;
-    hashmap_init(&hm, hashmap_hash_string, strcmp);
-    Sketch *sketches_read;
-
-    if (file_has_content(sketchfile)){
-        // read sketches from file
-        sketches_read = read_sketches(sketchfile, &total);
-
-        if (sketches_read == NULL){
-            printf("Error reading sketchfile.\n");
-            return 1;
-        }
-
-        printf("%d sketches loaded\n", total);
-
-        // fill hashmap
-        if (fill_hashmap(&hm, sketches_read, &total) != true){
-            printf("Error filling hashmap\n");
-            return 1;
-        }
-    } else{
-        // dummy allocation
-        sketches_read = malloc(sizeof(Sketch) * 1);
-    }
-    printf("hashmap created\n");
 
     // count input sequences and length
     seq_counter seq_count;
@@ -120,11 +100,38 @@ int main(int argc, char *argv[])
     printf("%d sequences; %d total len\n", seq_count.n, seq_count.l);
 
 
+    // init hashmap
+    vmap_t vm;
+    sizemap_t sm;
+    hashmap_init(&vm, hashmap_hash_string, strcmp);
+    hashmap_init(&sm, hashmap_hash_string, strcmp);
+    Sketch *sketches_read;
+
+    int loaded = 0;
+
+    if (file_has_content(sketchfile)){
+        // read sketches from file
+        sketches_read = read_sketches(sketchfile, &loaded);
+
+        // print_sketches(sketches_read, loaded);
+
+        if (sketches_read == NULL){
+            printf("Error reading sketchfile.\n");
+            return 1;
+        }
+
+        printf("%d sketches loaded\n", loaded);
+
+    } else{
+        // dummy allocation
+        sketches_read = malloc(sizeof(Sketch) * 1);
+    }
+
+
     // initialise index - code mostly from mm_idx_str
     mm_idx_t * mi;
     mi = init_index(WINDOW_SIZE, KMER_SIZE);
     mi->n_seq = seq_count.n;
-    //	mi->seq = (mm_idx_seq_t*)kcalloc(mi->km, nseq, sizeof(mm_idx_seq_t)); // ->seq is allocated from km
     mm_idx_seq_t * seqs = malloc(sizeof(mm_idx_seq_t) * seq_count.n);
     mi->seq = seqs;
     mi->S = (uint32_t*)calloc((seq_count.l + 7) / 8, 4);
@@ -133,42 +140,48 @@ int main(int argc, char *argv[])
     mi->h = h;
 
 
-    // iterate sequences and create index
-    int new_seqs = 0;
-    Sketch *sketches_new;
-    sketches_new = fill_idx_buckets(sequencefile, mi, seq_count.n, &hm, &new_seqs);
+    // fill hashmap
+    if (fill_hashmap(&vm, &sm, sketches_read, &loaded) != true){
+        printf("Error filling hashmap\n");
+        return 1;
+    }
+    printf("hashmap created\n");
 
+    // iterate sequences and create index
+    printf("collecting sketches\n");
+    Sketch *collected_sketches;
+    collected_sketches = malloc(seq_count.n * sizeof(mm128_t) * 20000); // TODO
+    collect_sketches(sequencefile, mi, &vm, &sm, collected_sketches);
+
+    // print_sketches(collected_sketches, seq_count.n);
+
+    // add sequences to index and run post-processing
+    fill_idx_buckets(mi, seq_count.n, collected_sketches);
     mm_idx_post(mi, NTHREADS);
 
     // save index to file
     if (write_index(idxfile, mi) != true){
         printf("Error writing index file\n");
+        return 1;
     }
     printf("idx written to: %s\n", idxfile);
 
 
-    // merge old and new sketches
-    Sketch *merged_sketches;
-    merged_sketches = mergearray(sketches_read, sketches_new, total, new_seqs);
-    total += new_seqs;
-    printf("%d total sketches; %d new sketches\n", total, new_seqs);
-
     // write new sketch file
-    if (write_sketches(sketchfile, merged_sketches, total)){
-        printf("%d Sketches written to: %s.\n", total, sketchfile);
+    if (write_sketches(sketchfile, collected_sketches, seq_count.n)){
+        printf("%d Sketches written to: %s.\n", seq_count.n, sketchfile);
     }
     else{
         printf("Error writing sketches.\n");
         return 1;
     }
 
-
     // clean-up
-    hashmap_cleanup(&hm);
+    hashmap_cleanup(&vm);
+    hashmap_cleanup(&sm);
     free(seqs);
     free(sketches_read);
-    free(sketches_new);
-    free(merged_sketches);
+    free(collected_sketches);
     mm_idx_destroy(mi);
     return 0;
 }
@@ -209,10 +222,17 @@ bool write_sketches(const char *filename, Sketch *data, int total)
         fwrite(&data[t].n, sizeof(char[64]), 1, file);
         fwrite(&data[t].v.n, sizeof(size_t), 1, file);
         fwrite(&data[t].v.m, sizeof(size_t), 1, file);
-        // write array values
-        for (int u = 0; u < (int) data[t].v.n; u++){
-            fwrite(&data[t].v.a[u], sizeof(mm128_t), 1, file);
+
+        int array_size = (int) data[t].v.n;
+        mm128_t * arr = malloc(sizeof(mm128_t) * array_size);
+
+        for (int u = 0; u < array_size; u++){
+            arr[u].x = data[t].v.a[u].x;
+            arr[u].y = data[t].v.a[u].y;
         }
+
+        // write the array of a single sketch to file
+        fwrite(arr, sizeof(arr[0]), array_size, file);
     }
     if (fclose(file) == EOF) return false;
     return true;
@@ -244,10 +264,9 @@ Sketch *read_sketches(const char *filename, int *total)
         data[t].v.n = n;
         data[t].v.m = m;
         // read minimizer array for this sketch
-        mm128_t * arr = malloc(sizeof(mm128_t) * n);
+        mm128_t *arr = malloc(sizeof(mm128_t) * n);
         fread(arr, sizeof(mm128_t), n, file);
         data[t].v.a = arr;
-        free(arr);
     }
     fclose(file);
     return data; // pointer to arr of structs
@@ -255,15 +274,25 @@ Sketch *read_sketches(const char *filename, int *total)
 
 
 
-bool fill_hashmap(sketchmap_t *hm, Sketch *data, const int *total){
-    for (int m = 0; m < *total; m++) {
-        char *n;
-        mm128_v *v;
-        n = strdup(data[m].n);
-        v = &data[m].v;
-        int insertion = hashmap_put(hm, n, v);
-        if (insertion < 0) {
-            printf("insertion failed: %s\n", strerror(-insertion));
+bool fill_hashmap(vmap_t *hm, sizemap_t *sm, Sketch *data, const int *loaded){
+    for (int m = 0; m < *loaded; m++) {
+        size_t *array_size = &data[m].v.n;
+        mm128_t *arr = malloc(sizeof(mm128_t) * *array_size);
+
+        for (int u = 0; u < *array_size; u++){
+            arr[u].x = data[m].v.a[u].x;
+            arr[u].y = data[m].v.a[u].y;
+        }
+
+        int ix = hashmap_put(hm, data[m].n, arr);
+        if (ix < 0) {
+            printf("insertion failed: %s\n", strerror(-ix));
+            return false;
+        }
+
+        int is = hashmap_put(sm, data[m].n, array_size);
+        if (is < 0) {
+            printf("insertion failed: %s\n", strerror(-is));
             return false;
         }
     }
@@ -284,28 +313,6 @@ Sketch sketch_sequence(kseq_t *seq, int w, int k, int r)
 
 
 
-Sketch *mergearray(Sketch *a, Sketch *b, int size_a, int size_b)
-{
-    int size_total = size_a + size_b; // calc final size
-    int i, j;
-    Sketch *c;
-    c = malloc(sizeof(Sketch) * size_total);
-
-    // copy sketches from array a into c
-    for (i = 0; i < size_a; i++) {
-        c[i] = a[i];
-    }
-
-    // copy sketches from array b into c
-    for (i = 0, j = size_a;
-         j < size_total && i < size_b; i++, j++) {
-        c[j] = b[i];
-    }
-    return c;
-}
-
-
-
 seq_counter count_sequences(const char * fname){
     gzFile file = gzopen(fname, "r");
     kseq_t *seq = kseq_init(file);
@@ -316,8 +323,6 @@ seq_counter count_sequences(const char * fname){
         sc.n++;
         sc.l += (int) seq->seq.l;
     }
-    kseq_destroy(seq);
-    gzclose(file);
     return sc;
 }
 
@@ -333,17 +338,55 @@ bool write_index(const char * fname, mm_idx_t * mi){
 
 
 
-Sketch *fill_idx_buckets(const char * fname, mm_idx_t * mi, int n, sketchmap_t *hm, int *new_seqs){
+void fill_idx_buckets(mm_idx_t * mi, int n, Sketch *data){
+    // fill index buckets and return array of new sketches
+    printf("filling buckets\n");
+
+    // code mostly equivalent to mm_idx_str
+    for (int i = 0; i < n; i++){
+        int sn = (int) data[i].v.n;
+        mm_idx_add(mi, sn, data[i].v.a);
+    }
+}
+
+
+uint64_t modify_y(uint64_t y, int rid){
+    // take the y-value of a mm128_t as input and a rid to be injected
+    // y is a combination of rid, position and strand
+    // mm_sketch() in sketch.c: y = (uint64_t)rid<<32 | (uint32_t)i<<1 | z;
+    // bitshifts and ORs
+    uint64_t newy;
+    uint32_t y_lowbits;
+    // cast input to 32bit to lose the original rid
+    y_lowbits = (uint32_t) y;
+    newy = (uint64_t) rid<<32 | y_lowbits;
+    // printf("%" PRIu64 "\n", y);
+    return newy;
+}
+
+
+void change_rid(mm128_t *arr, size_t n, int rid){
+    // iterate array and replace the rid encoded in y values
+    for (int i = 0; i < n; i++){
+        uint64_t newy;
+        mm128_t *a = &arr[i];
+        newy = modify_y(a->y, rid);
+        a->y = newy;
+    }
+}
+
+
+
+
+void collect_sketches(const char * fname, mm_idx_t * mi, vmap_t *vm, sizemap_t *sm, Sketch * cs){
     // fill index buckets and return array of new sketches
     gzFile file = gzopen(fname, "r");
     kseq_t *seq = kseq_init(file);
     int l;
     int idx = 0;
     int offset_c = 0;
-    mm128_v *q;                 // hashmap value
-    Sketch sketch_new;          // sketch of new sequence
-    Sketch *sketches_new;       // array of new sketches
-    sketches_new = malloc(sizeof(Sketch) * n);
+    mm128_t *qv;                 // hashmap value
+    int qs;
 
     // code mostly equivalent to mm_idx_str
     while ((l = kseq_read(seq)) >= 0) {
@@ -351,7 +394,7 @@ Sketch *fill_idx_buckets(const char * fname, mm_idx_t * mi, int n, sketchmap_t *
         mm_idx_seq_t *p = &mi->seq[idx];
         uint32_t j;
         int absent;
-        // p->name = (char*)kmalloc(mi->km, strlen(name[i]) + 1);
+        Sketch sketch_new;          // sketch of new sequence
         p->name = malloc(strlen(seq->name.s) + 1);
         strcpy(p->name, seq->name.s);
         kh_put(str, mi->h, p->name, &absent);
@@ -369,26 +412,49 @@ Sketch *fill_idx_buckets(const char * fname, mm_idx_t * mi, int n, sketchmap_t *
         offset_c += plen;
 
         // either find sketch in hashmap or create
-        q = hashmap_get(hm, seq->name.s);
-        if (!q){
+        qv = hashmap_get(vm, seq->name.s);
+
+        if (!qv){
             // printf("%s NO\n", seq->name.s);
             sketch_new = sketch_sequence(seq, WINDOW_SIZE, KMER_SIZE, idx);
-            sketches_new[*new_seqs] = sketch_new;
-            (*new_seqs)++;
-            int sn = (int) sketch_new.v.n;
-            mm_idx_add(mi, sn, sketch_new.v.a);
+            cs[idx] = sketch_new;
         }
         else {
             // printf("%s YES\n", seq->name.s);
-            int qn = (int) q->n;
-            mm_idx_add(mi, qn, q->a);
+            qs = (int) *hashmap_get(sm, seq->name.s);
+            strcpy(sketch_new.n, seq->name.s);
+            sketch_new.v.n = qs;
+            sketch_new.v.m = 0;
+            sketch_new.v.a = malloc(sizeof(mm128_t) * qs);
+
+            for (int i = 0; i < qs; i++){
+                sketch_new.v.a[i].x = qv[i].x;
+                sketch_new.v.a[i].y = qv[i].y;
+            }
+            // inject the correct read id into loaded sketches
+            change_rid(sketch_new.v.a, (size_t) qs, idx);
+
+            cs[idx] = sketch_new;
         }
         idx++;
     }
-    kseq_destroy(seq);
-    gzclose(file);
-    return sketches_new;
 }
 
 
 
+
+void print_sketches(Sketch *data, int n){
+    for (int i = 0; i < n; i++){
+        int s = data[i].v.n;
+        printf("%d\n", s);
+
+        for (int j = 0; j < s; j++) {
+            printf("%" PRIu64 " ", data[i].v.a[j].x);
+        }
+        printf("\n");
+        for (int j = 0; j < s; j++) {
+            printf("%" PRIu64 " ", data[i].v.a[j].y);
+        }
+        printf("\n\n\n");
+    }
+}
