@@ -36,27 +36,22 @@ Dependencies are:
 
 Installation:
 
-`git clone TODO`
+- clone this repository and also clone minimap2 into it (needed for compiler)
+
+- `git clone https://github.com/W-L/mm2-ii.git && cd mm2-ii && git clone https://github.com/lh3/minimap2.git`
+
+- create build directory and run the build
 
 `mkdir -p build && cmake -S . -B build && cd build && make`
 
-Executable should be available as: `./build/mm2ii`
+The executable should then be available as: `./build/mm2ii`
 
 ## Usage
 
 `mm2ii <in.sketches> <in.fasta> <out.mmi>`
 
 
-## TODO
 
-- TODO does not work with sketches loaded from file
-- only empty file in works atm
-
-
-- only write the sketches to file that are part of the sequence file
-- that way we drop sketches that are not needed anymore
-- and we might get rid of array merging?
-- the index is not completely identical to an index produced by mm2
 
 
 
