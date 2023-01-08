@@ -1,7 +1,7 @@
 
 DATA=$1
 
-./cmake-build-debug/mm2ii sketches.bin "$DATA" idx.mmi
+./cmake-build-debug/mm2ii sketches.in sketches.in "$DATA" idx.mmi
 
 python scripts/print_mmi_names.py idx.mmi "$DATA"
 
