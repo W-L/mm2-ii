@@ -7,6 +7,9 @@ cmake-build-debug/
 cmake-build-release/
 data/
 minimap2/
+hashmap/**
+out/
+
 
 
 # Byte-compiled / optimized / DLL files
@@ -138,3 +141,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+/hashmap/
+/hashmap/
