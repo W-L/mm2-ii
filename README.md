@@ -13,6 +13,13 @@ then indexing reads that were already indexed previously would be wasteful.
 
 TODO
 
+
+## TODOs
+
+- currently only removal of sequences works
+- adding new sequences is work in progress
+
+
 ## Installation & Usage
 
 
