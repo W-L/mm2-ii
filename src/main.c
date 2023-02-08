@@ -634,17 +634,79 @@ int main(int argc, char *argv[]) {
     // TODO add new sketches without having to resort buckets
     // loop sketches -> loop mms of sketch -> index into bucket ->
 
-    // load index from file
-    mm_idx_t *mi = load_index(idx_in);
+    // load and modify index
+    clock_t tic03 = clock();
+    FILE *fp_in = fopen(idx_in, "rb");
+    FILE *fp_out = fopen(idx_out, "wb");
+
+    // dump basics
+    idx_info mm_info;
+    dump_basics(fp_in, fp_out, &mm_info);
+
+    // dump seq info
+    dump_sequence_info(fp_in, fp_out, b_not_a, mm_info.x[3]);
 
 
-    // TODO move mod loop instead of during dumping
+    // process buckets
+    for (int i = 0; i < 1<<mm_info.x[2]; ++i) {
+        uint32_t size;
+        int32_t n;   // size of the _p_ array
+        uint64_t *p; // position array for minimizers appearing >1 times
+
+        // read bucket basics
+        fread(&n, 4, 1, fp_in);
+        p = (uint64_t*)malloc(n * 8);
+        fread(p, 8, n, fp_in);
+        fread(&size, 4, 1, fp_in);
+
+        // dump empty bucket
+        if (size == 0){
+            fwrite(&n, 4, 1, fp_out);
+            fwrite(p, 8, n, fp_out);
+            fwrite(&size, 4, 1, fp_out);
+            continue;
+        }
+
+        // non-empty bucket
+        idx_bucket b = {.s = size, .n = n, .p = p};
+        b.keys = malloc(sizeof(uint64_t) * size);
+        b.vals = malloc(sizeof(uint64_t) * size);
+        uint64_t mm[2];
+
+        // read minimizers in this bucket
+        for (uint32_t j = 0; j < size; ++j) {
+            fread(mm, 8, 2, fp_in);
+            b.keys[j] = mm[0];
+            b.vals[j] = mm[1];
+        }
 
 
-    // write index to file incl modifications
-    FILE *idx_dump_fp = fopen(idx_out, "wb");
-    mm_idx_dump_mod(idx_dump_fp, mi, b_not_a);
-    fclose(idx_dump_fp);
+        // in-place modification of minimizers in the hash tables
+        uint32_t n_del_s = 0;
+        uint32_t n_del_m = 0;
+        uint32_t n_red = 0;
+        uint32_t n_mod = 0;
+        int *pdel;
+
+
+        // handle multitons and return indicator array for which elements to delete in p
+        pdel = process_bucket(&b, idx_del, &n_del_s, &n_del_m, &n_red, &n_mod);
+        // modify p array according to pdel array
+        modify_parray(fp_out, &b, pdel);
+        // write the modified minimmizers to file
+        dump_minimizers(fp_out, &b, &n_del_s, &n_del_m);
+
+        free(b.keys);
+        free(b.vals);
+        free(b.p);
+        free(pdel);
+    } // END OF BUCKET
+
+    fflush(fp_out);
+    fclose(fp_in);
+    fclose(fp_out);
+
+    clock_t toc03 = clock();
 
     printf("idx written to: %s\n", idx_out);
 
