@@ -435,12 +435,10 @@ strdict_t *get_index_headers(const char * fname)
     // check idx validity and get n_seq
     char magic[4];
     uint32_t x[5];
-    mm_idx_t *mi;
+    char name[64];
     if (fread(magic, 1, 4, fp) != 4) return 0;
     if (strncmp(magic, MM_IDX_MAGIC, 4) != 0) return 0;
     if (fread(x, 4, 5, fp) != 5) return 0;
-    mi = mm_idx_init(x[0], x[1], x[2], x[4]);
-
     int n_seq = x[3];
     // init str set for headers
     khash_t(str) *idx_headers;
@@ -452,10 +450,8 @@ strdict_t *get_index_headers(const char * fname)
     for (int i = 0; i < n_seq; ++i) {
         uint8_t l;
         uint32_t seqlen;
-        char *name;
         fread(&l, 1, 1, fp);
         if (l) {
-            name = (char*)kmalloc(mi->km, l + 1);
             fread(name, 1, l, fp);
             k = kh_put(str, idx_headers, name, &absent);
             assert(absent);
@@ -468,8 +464,6 @@ strdict_t *get_index_headers(const char * fname)
     fclose(fp);
     return idx_headers;
 }
-
-
 
 
 
