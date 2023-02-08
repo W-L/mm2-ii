@@ -132,16 +132,17 @@ uint64_t *reduce_to_singleton(idx_bucket *b, int ppos, int mm_idx)
 }
 
 
-void change_modified_multiton(mm_idx_bucket_t *b, int pshift, int newsize, uint64_t mnm){
-    idxhash_t  *h = (idxhash_t *)b->h;
-    khint_t k_ind;
-    k_ind = kh_get(idx, h, mnm);
+
+uint64_t *change_modified_multiton(idx_bucket *b, int pshift, int newsize, int mm_idx)
+{
     uint64_t mm[2];
-    mm[0] = kh_key(h, k_ind), mm[1] = kh_val(h, k_ind);
+    mm[0] = b->keys[mm_idx], mm[1] = b->vals[mm_idx];
+    // new minimizer value with mod to pshift and copynumber
     uint32_t ppos = mm[1] >> 32;
     ppos = ppos - pshift;
-    // modify the value of this mm
-    kh_value(h, k_ind) = (uint64_t) ppos<<32 | newsize;
+    uint64_t *nn = malloc(sizeof(uint64_t) * 2);
+    nn[0] = mm[0], nn[1] = (uint64_t) ppos<<32 | newsize;
+    return nn;
 }
 
 
