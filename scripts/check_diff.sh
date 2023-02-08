@@ -29,9 +29,11 @@ echo ""
 minimap2 -x map-ont -k15 -w5 -d $D1 "$DATA1"
 
 
+
 ## run mm2ii
 printf '\n\n==========\n\n'
 ./src/cmake-build-debug/mm2ii $DATA1 $D0 $D2 || rm $D2   ## remove partial index
+#./src/cmake-build-release/mm2ii $DATA1 $D0 $D2 || rm $D2   ## remove partial index
 printf '\n\n==========\n\n'
 ## check diff between original and custom
 #diff $D1 $D2 && printf "\n --- no diff --- \n \n"
@@ -46,7 +48,8 @@ minimap2 -x map-ont -k15 -w5 $D2 "$DATA0" >$R1
 echo ""
 
 ## check if paf files are different
-diff <(cut -f1-9 $R0)  <(cut -f1-9 $R1) && printf "\n --- no diff --- \n \n"
+diff <(cut -f1-9 $R0)  <(cut -f1-9 $R1) >idxdiff
+ls -lh idxdiff
 #diff $R0 $R1 && printf "\n --- no diff --- \n \n"
 
 ## additional checks for binary and hex representation of indices
