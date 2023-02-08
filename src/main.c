@@ -197,6 +197,14 @@ void modify_parray(FILE *fp, mm_idx_bucket_t *b, int *pdel)
 
 
 
+int is_multiton(uint64_t mm)
+{
+    if ((mm & 1) != 1){
+        return 1;
+    } else {
+        return 0;
+    }
+}
 
 
 int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multiton, int *n_del_reductions, int *n_mod){
