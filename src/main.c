@@ -113,31 +113,14 @@ uint64_t dump_sequence_info(FILE *fp, const mm_idx_t *mi, intset_t *idx_del)
 
 
 
-void dump_basics(FILE *fp, const mm_idx_t *mi)
+void dump_basics(FILE *fp_in, FILE *fp_out, idx_info *mm_info)
 {
-    uint32_t x[5];
-    x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq, x[4] = mi->flag;
-    fwrite(MM_IDX_MAGIC, 1, 4, fp);
-    fwrite(x, 4, 5, fp);
-}
-
-
-
-
-
-void dump_without_mod(FILE *fp, mm_idx_bucket_t *b)
-{
-    idxhash_t *h = (idxhash_t*)b->h;
-    uint32_t size = h? h->size : 0;
-    khint_t k;
-
-    fwrite(&size, 4, 1, fp);
-    for (k = 0; k < kh_end(h); ++k) {
-        uint64_t mm[2];
-        if (!kh_exist(h, k)) continue;
-        mm[0] = kh_key(h, k), mm[1] = kh_val(h, k);
-        fwrite(mm, 8, 2, fp);
-    }
+    char magic[4];
+    fread(magic, 1, 4, fp_in);
+    fwrite(magic, 1, 4, fp_out);
+    // w, k, b, n_seq, flag
+    fread(mm_info->x, 4, 5, fp_in);
+    fwrite(mm_info->x, 4, 5, fp_out);
 }
 
 
