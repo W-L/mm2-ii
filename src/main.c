@@ -121,25 +121,14 @@ void dump_basics(FILE *fp_in, FILE *fp_out, idx_info *mm_info)
 
 
 
-
-void reduce_to_singleton(mm_idx_bucket_t *b, int ppos, uint64_t mnm)
+uint64_t *reduce_to_singleton(idx_bucket *b, int ppos, int mm_idx)
 {
-    idxhash_t  *h = (idxhash_t *)b->h;
-    khint_t k_ind;
-    k_ind = kh_get(idx, h, mnm);
     uint64_t mm[2];
-    mm[0] = kh_key(h, k_ind), mm[1] = kh_val(h, k_ind);
+    mm[0] = b->keys[mm_idx], mm[1] = b->vals[mm_idx];
     // new minimizer
-    uint64_t nn[2];
+    uint64_t *nn = malloc(sizeof(uint64_t) * 2);
     nn[0] = mm[0]|1, nn[1] = b->p[ppos];
-    // delete old key
-    kh_del(idx, h, k_ind);
-    // assign new key value in hash table
-    int absent;
-    khint_t k;
-    k = kh_put(idx, h, nn[0], &absent);
-    assert(absent);
-    kh_value(h, k) = nn[1];
+    return nn;
 }
 
 
