@@ -156,6 +156,7 @@ int array_sum(const int *arr, int size){
 }
 
 
+
 int *array_cumsum(const int *arr, int size){
     int *cumsum = malloc(sizeof(int) * size);
     int sum = 0;
@@ -167,7 +168,8 @@ int *array_cumsum(const int *arr, int size){
 }
 
 
-void modify_parray(FILE *fp, mm_idx_bucket_t *b, int *pdel)
+
+void modify_parray(FILE *fp, idx_bucket *b, int *pdel)
 {
     int n_del_p = array_sum(pdel, b->n);
     int32_t new_p_size = 0;
@@ -404,6 +406,7 @@ strdict_t *get_sequence_headers(const char * fname)
 }
 
 
+
 void destroy_str_dict(strdict_t *h)
 {
     khint_t k;
@@ -412,19 +415,6 @@ void destroy_str_dict(strdict_t *h)
             free((char*)kh_key(h, k));
     kh_destroy(str, h);
 }
-
-//
-//mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
-//{
-//    mm_idx_t *mi;
-//    if (k*2 < b) b = k * 2;
-//    if (w < 1) w = 1;
-//    mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
-//    mi->w = w, mi->k = k, mi->b = b, mi->flag = flag;
-//    mi->B = (mm_idx_bucket_t*)calloc(1<<b, sizeof(mm_idx_bucket_t));
-//    if (!(mm_dbg_flag & 1)) mi->km = km_init();
-//    return mi;
-//}
 
 
 
@@ -503,7 +493,6 @@ intset_t *rel_comp(strdict_t *a, strdict_t *b)
 
 
 
-
 Sketch sketch_sequence(kseq_t *seq, int w, int k, int r)
 {
     Sketch sk = {.v.n = 0, .v.a = 0};
@@ -513,6 +502,7 @@ Sketch sketch_sequence(kseq_t *seq, int w, int k, int r)
     mm_sketch(0, seq->seq.s, l, w, k, r, 0, &sk.v);
     return sk;
 }
+
 
 
 Sketch *collect_sketches(const char * fname, intset_t *indices_add, int_arr *free_indices)
@@ -549,6 +539,7 @@ Sketch *collect_sketches(const char * fname, intset_t *indices_add, int_arr *fre
 }
 
 
+
 int_arr prep_indices_to_populate(intset_t *empty_indices, int n_seqs_in_idx, int n_new_seqs)
 {
     int_arr res;
@@ -570,6 +561,7 @@ int_arr prep_indices_to_populate(intset_t *empty_indices, int n_seqs_in_idx, int
 }
 
 
+
 void print_args(int argc, char *argv[]){
     // check correct number of args
     if (argc != 4) {
@@ -583,15 +575,6 @@ void print_args(int argc, char *argv[]){
         printf("%s ", argv[i]);
     }
     printf("\n\n");
-}
-
-
-mm_idx_t *load_index(const char *idx_in){
-    FILE *idx_read_fp = fopen(idx_in, "rb");
-    mm_idx_t *mi;
-    mi = mm_idx_load(idx_read_fp);
-    fclose(idx_read_fp);
-    return mi;
 }
 
 
@@ -622,7 +605,7 @@ int main(int argc, char *argv[]) {
     printf("seq to add: %d\n", kh_size(a_not_b));
     printf("seq to remove: %d\n", kh_size(b_not_a));
 
-    // prep indices to place new seqs
+    // prep indices to place new seqs   TODO
     //    int_arr free_indices;
     //    free_indices = prep_indices_to_populate(b_not_a, kh_size(idx_headers), kh_size(a_not_b));
 
@@ -711,11 +694,8 @@ int main(int argc, char *argv[]) {
     printf("idx written to: %s\n", idx_out);
 
     // clean-up
-    mm_idx_destroy(mi);
     destroy_str_dict(seq_headers);
     destroy_str_dict(idx_headers);
-    //    kh_destroy(int_set, h);
-
 
     // timing analysis
     clock_t toc = clock();
