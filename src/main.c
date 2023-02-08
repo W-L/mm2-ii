@@ -12,28 +12,15 @@
 #include "kseq.h"
 #include "mmpriv.h"     // radix_sort, mm_seq4..
 
-#include "index_mm2ii.h"
+//#include "index_mm2ii.h"
 
 // inits for kseq & khash
 KSEQ_INIT(gzFile, gzread)
 
-#define idx_hash(a) ((a)>>1)
-#define idx_eq(a, b) ((a)>>1 == (b)>>1)
-
-KHASH_INIT(idx, uint64_t, uint64_t, 1, idx_hash, idx_eq)
-typedef khash_t(idx) idxhash_t;
-KHASH_MAP_INIT_STR(str, uint32_t)
-
-
 KHASH_SET_INIT_INT(int_set)
 typedef khash_t(int_set) intset_t;
 
-
-KHASH_MAP_INIT_INT(int_dict, int)
-typedef khash_t(int_dict) intdict_t;
-
-
-//KHASH_MAP_INIT_STR(str_dict, int)
+KHASH_MAP_INIT_STR(str, uint32_t)
 typedef khash_t(str) strdict_t;
 
 
