@@ -592,18 +592,24 @@ int main(int argc, char *argv[]) {
     clock_t tic = clock();
 
     // load headers of seq and idx files into sets
+    clock_t tic01 = clock();
     khash_t(str) *seq_headers;
     khash_t(str) *idx_headers;
     seq_headers = get_sequence_headers(sequencefile);
     idx_headers = get_index_headers(idx_in);
+    clock_t toc01 = clock();
 
     // find the difference between the index and the sequence file
+    clock_t tic02 = clock();
     intset_t *a_not_b;
     intset_t *b_not_a;
+    intset_t *idx_del;
     a_not_b = rel_comp(seq_headers, idx_headers);
     b_not_a = rel_comp(idx_headers, seq_headers);
     printf("seq to add: %d\n", kh_size(a_not_b));
     printf("seq to remove: %d\n", kh_size(b_not_a));
+    idx_del = b_not_a;
+    clock_t toc02 = clock();
 
     // prep indices to place new seqs   TODO
     //    int_arr free_indices;
@@ -701,8 +707,12 @@ int main(int argc, char *argv[]) {
     clock_t toc = clock();
     double tt = toc - tic;
     printf("t: %f s\n\n", tt / CLOCKS_PER_SEC);
-    //    double t0 = (toc0 - tic0) / tt * 100;
-    //    printf("counting:\t %f \n", t001);
+    double t01 = (toc01 - tic01) / tt * 100;
+    double t02 = (toc02 - tic02) / tt * 100;
+    double t03 = (toc03 - tic03) / tt * 100;
+    printf("01:\t %f \n", t01);
+    printf("02:\t %f \n", t02);
+    printf("03:\t %f \n", t03);
 
     return 0;
 }
