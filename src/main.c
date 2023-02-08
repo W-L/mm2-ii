@@ -26,7 +26,7 @@ typedef khash_t(str) strdict_t;
 
 // magic identifier for mmis
 #define MM2_VERSION     "2.24-r1150"
-#define MM2_II_VERSION  "0.0.3"
+#define MM2_II_VERSION  "0.0.4"
 #define WINDOW_SIZE     5
 #define KMER_SIZE       15
 //#define NTHREADS        6
