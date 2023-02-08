@@ -41,6 +41,11 @@ typedef struct{
 
 
 typedef struct{
+    uint32_t x[5];
+} idx_info;
+
+
+typedef struct{
     int *a;
     int l;
 } int_arr;
@@ -58,6 +63,15 @@ typedef struct{
 //    uint64_t *p; // position array for minimizers appearing >1 times
 //    void *h;     // hash table indexing _p_ and minimizers appearing once
 //} mm_idx_bucket_t;
+
+
+typedef struct {
+    uint32_t s;
+    int32_t n;   // size of the _p_ array
+    uint64_t *p; // position array for minimizers appearing >1 times
+    uint64_t *keys;
+    uint64_t *vals;
+} idx_bucket;
 
 
 
