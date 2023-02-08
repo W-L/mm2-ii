@@ -389,11 +389,13 @@ strdict_t *get_sequence_headers(const char * fname)
     int l;
     int absent;
     int i = 0;
+    char name[64];
 
     while ((l = kseq_read(seq)) >= 0) {
-        k = kh_put(str, headers, seq->name.s, &absent);
+        strcpy(name, seq->name.s);
+        k = kh_put(str, headers, name, &absent);
         assert(absent);
-        kh_key(headers, k) = strdup(seq->name.s);
+        kh_key(headers, k) = strdup(name);
         kh_val(headers, k) = i;
         i++;
     }
