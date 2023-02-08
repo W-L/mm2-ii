@@ -207,31 +207,21 @@ int is_multiton(uint64_t mm)
 }
 
 
-int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multiton, int *n_del_reductions, int *n_mod){
-    idxhash_t *h = (idxhash_t*)b->h;
-    int m = b->n;
-    int absent;
-    khint_t k;
 
-    // create a k-array with same length as p but pointing back to the hash table
-    int mm_arr[m]; // = malloc(sizeof(int) * b->n);
+int *process_bucket(idx_bucket *b, intset_t *idx_del, uint32_t *n_del_s, uint32_t *n_del_m, uint32_t *n_red, uint32_t *n_mod){
+    int m = b->n;
+
+    // helper arrays for multitons mods
     int cn_arr[m];
+    int idx_arr[m];
     int newsize_arr[m];
     int *pdel = malloc(sizeof(int) * m);
 
-    // no multitons in this bucket
-    if (m == 0){
-        return pdel;
-    }
-
-    // collect multiton info arrays
-    for (k = 0; k < kh_end(h); ++k) {
-        if (!kh_exist(h, k)) continue;
+    for (int i = 0; i < b->s; i++) {
         uint64_t mm[2];
-        mm[0] = kh_key(h, k), mm[1] = kh_val(h, k);
+        mm[0] = b->keys[i], mm[1] = b->vals[i];
 
-
-        if ((mm[0] & 1) != 1) {   // multiton
+        if (is_multiton(mm[0])) {               // multiton
             // get copy number
             uint32_t copyn;
             copyn = (uint32_t) mm[1];
@@ -240,8 +230,8 @@ int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multito
 
             // fill the respective positions in karr and carr
             for (int l = 0; l < copyn; l++) {
-                mm_arr[ppos + l] = mm[0];
                 cn_arr[ppos + l] = copyn;
+                idx_arr[ppos + l] = i;
 
                 uint64_t seq_id = b->p[ppos + l] >> 32;
                 // check if source sequence is deleted
@@ -263,14 +253,24 @@ int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multito
             for (int r = 0; r < copyn; r++) {
                 newsize_arr[ppos + r] = copyn - n_del_units;
             }
+
+        } else {                                    // singleton
+            // check if source sequence is deleted
+            if (in_int_set(idx_del, mm[1] >> 32)) {
+                // delete mm
+                (*n_del_s)++;
+                b->keys[i] = 0;
+                b->vals[i] = 0;
+            }
+
         }
     }
+
+
     // effect multiton info arrays
     for (int l = 0; l < m;) {
-        uint64_t mnm = mm_arr[l];
         int cn = cn_arr[l];
-
-        // get new size
+        int idx = idx_arr[l];
         int newsize = newsize_arr[l];
         assert(newsize >= 0);
 
@@ -281,9 +281,9 @@ int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multito
 
         // wipe-out
         if (newsize == 0){
-            khint_t k_ind = kh_get(idx, h, mnm);
-            kh_del(idx, h, k_ind);
-            (*n_del_multiton)++;
+            (*n_del_m)++;
+            b->keys[idx] = 0;
+            b->vals[idx] = 0;
             l += cn;
             continue;
         }
@@ -292,16 +292,19 @@ int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multito
         if (newsize == 1){
             // search for the copy in p that comes from a non-deleted sequence
             int done = 0;
+            uint64_t *nn;
             for (int i = 0; i < cn; i++) {
                 if (pdel[l + i] == 0) {
                     assert(!done);
-                    reduce_to_singleton(b, l + i, mnm);
+                    nn = reduce_to_singleton(b, l + i, idx);
+                    b->keys[idx] = nn[0];
+                    b->vals[idx] = nn[1];
                     pdel[l + i] = 1;
                     done = 1;
                 }
             }
             assert(done);
-            (*n_del_reductions)++;
+            (*n_red)++;
             l += cn;
             continue;
         }
@@ -312,8 +315,10 @@ int *process_multitons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_multito
             int *pdel_cumsum;
             pdel_cumsum = array_cumsum(pdel, m);
             int pshift = pdel_cumsum[l];
-            change_modified_multiton(b, pshift, newsize, mnm);
+            uint64_t *nn = change_modified_multiton(b, pshift, newsize, idx);
             (*n_mod)++;
+            b->keys[idx] = nn[0];
+            b->vals[idx] = nn[1];
             l += cn;
             continue;
         }
