@@ -328,105 +328,27 @@ int *process_bucket(idx_bucket *b, intset_t *idx_del, uint32_t *n_del_s, uint32_
 
 
 
-void process_singletons(mm_idx_bucket_t *b, intset_t *idx_del, int *n_del_singleton)
+void dump_minimizers(FILE *fp_out, idx_bucket *b, const uint32_t *n_del_s, const uint32_t *n_del_m)
 {
-    idxhash_t *h = (idxhash_t*)b->h;
-    uint32_t size = h? h->size : 0;
-    khint_t k;
-    if (size == 0){return;}
-
-    for (k = 0; k < kh_end(h); ++k) {
-        if (!kh_exist(h, k)) continue;
-        uint64_t mm[2];
-        mm[0] = kh_key(h, k), mm[1] = kh_val(h, k);
-
-        if ((mm[0] & 1) == 1) {   // singleton
-            // check if source sequence is deleted
-            if (in_int_set(idx_del, mm[1] >> 32)) {
-                // delete mm
-                (*n_del_singleton)++;
-                kh_del(idx, h, k);
-            }
-        }
-    }
-}
-
-
-void dump_hashtable(FILE *fp, mm_idx_bucket_t *b)
-{
-    idxhash_t *h = (idxhash_t*)b->h;
-    uint32_t size = h? h->size : 0;
-    khint_t k;
-
     // empty bucket
-    if (size == 0){
-        fwrite(&size, 4, 1, fp);
+    if (b->s == 0){
+        fwrite(&b->s, 4, 1, fp_out);
         return;
     }
 
     // non-empty bucket
-    // size has alrady changed from dynamic updates to hashtable
-    // no need to recalc
-    fwrite(&size, 4, 1, fp);
-
-    for (k = 0; k < kh_end(h); ++k) {
-        if (!kh_exist(h, k)) continue;
-        uint64_t mm[2];
-        mm[0] = kh_key(h, k), mm[1] = kh_val(h, k);
-        fwrite(mm, 8, 2, fp);
-    }
-
-}
-
-
-
-void mm_idx_dump_mod(FILE *fp, const mm_idx_t *mi, intset_t *idx_del)
-{
-    // dump the magic and 5 basic parameters
-    dump_basics(fp, mi);
-
-    // dump sequence info
-    uint64_t sum_len;
-    sum_len = dump_sequence_info(fp, mi, idx_del);
-
-    // iterate buckets for dumping
-    uint32_t i;
-    for (i = 0; i < 1<<mi->b; ++i) {
-        mm_idx_bucket_t *b = &mi->B[i];
-        idxhash_t  *h = (idxhash_t *)b->h;
-        uint32_t size = h? h->size : 0;
-
-
-        // this bucket does not have any mms in it
-        // i.e. it does not have an initialised hash table
-        if (size == 0){
-            fwrite(&b->n, 4, 1, fp);
-            fwrite(b->p, 8, b->n, fp);
-            fwrite(&size, 4, 1, fp);
+    int del = 0;
+    uint32_t size = b->s - *n_del_s - *n_del_m;
+    fwrite(&size, 4, 1, fp_out);
+    for (int i = 0; i < b->s; i++) {
+        if ((b->keys[i] == 0) && (b->vals[i] == 0)){
+            del++;
             continue;
         }
-
-
-        // new approach: excplicit handling of multitons and singletons
-        // in-place modification of minimizers in the hash tables
-        int n_del_singleton = 0;
-        int n_del_multiton = 0;
-        int n_del_reductions = 0;
-        int n_mod = 0;
-        int *pdel;
-
-        // handle multitons and return indicator array for which elements to delete in p
-        pdel = process_multitons(b, idx_del, &n_del_multiton, &n_del_reductions, &n_mod);
-        // delete singletons in-place
-        process_singletons(b, idx_del, &n_del_singleton);
-        // modify p array according to pdel array
-        modify_parray(fp, b, pdel);
-        // write the modified hash tables to file
-        dump_hashtable(fp, b);
+        fwrite(&b->keys[i], 8, 1, fp_out);
+        fwrite(&b->vals[i], 8, 1, fp_out);
     }
-    if (!(mi->flag & MM_I_NO_SEQ))
-        fwrite(mi->S, 4, (sum_len + 7) / 8, fp);
-    fflush(fp);
+    assert(del == (*n_del_s + *n_del_m));
 }
 
 
