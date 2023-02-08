@@ -8,6 +8,11 @@ This tool speeds up alignment of reads by avoiding to re-index sequences that ha
 E.g. if all-vs-all alignments of reads are performed and new reads shall be added to the comparison,
 then indexing reads that were already indexed previously would be wasteful.
 
+PROOF OF PRINCIPLE
+
+- not reliable
+- speed-ups are unpredictable. Sometimes 2x, sometimes 0x
+
 
 ## More detailed procedure
 
