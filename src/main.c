@@ -86,29 +86,25 @@ int in_int_set(intset_t *ih, const uint32_t query)
 }
 
 
-uint64_t dump_sequence_info(FILE *fp, const mm_idx_t *mi, intset_t *idx_del)
-{
-    uint64_t sum_len = 0;
-    uint32_t i;
-    for (i = 0; i < mi->n_seq; ++i) {
-        if (mi->seq[i].name) {
-            uint8_t l = strlen(mi->seq[i].name);
-            fwrite(&l, 1, 1, fp);
-            fwrite(mi->seq[i].name, 1, l, fp);
-        } else {
-            uint8_t l = 0;
-            fwrite(&l, 1, 1, fp);
-        }
 
-        // for deleted seqs: set seq length to 0
-        // not deleting sequences, to avoid shuffling y-values
-        if (in_int_set(idx_del, i)){
-            mi->seq[i].len = 0;
+void dump_sequence_info(FILE *fp_in, FILE *fp_out, intset_t *idx_del, uint32_t n_seq) {
+    for (int i = 0; i < n_seq; ++i) {
+        uint8_t l;
+        fread(&l, 1, 1, fp_in);
+        fwrite(&l, 1, 1, fp_out);
+        if (l) {
+            char name[l];
+            fread(&name, 1, l, fp_in);
+            fwrite(&name, 1, l, fp_out);
         }
-        fwrite(&mi->seq[i].len, 4, 1, fp);
-        sum_len += mi->seq[i].len;
+        uint32_t len;
+        fread(&len, 4, 1, fp_in);
+        // length of deleted seqs set to 0
+        if (in_int_set(idx_del, i)){
+            len = 0;
+        }
+        fwrite(&len, 4, 1, fp_out);
     }
-    return sum_len;
 }
 
 
